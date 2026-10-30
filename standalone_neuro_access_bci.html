@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neuro-Access BCI: Simulador de Persona Virtual y Traductor de Intención Motora</title>
+  <meta name="description" content="Simulador de EEG sintético para pruebas de BCI sin datasets externos pesados. Modela canales C3, Cz, C4 y protocolo experimental automatizado." />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #FAFAFA;
+      --card-bg: #F5EBE0;
+      --card-border: #E3D5CA;
+      --card-subtle: #FAF5F0;
+      --text-main: #3D3A37;
+      --text-muted: #6B645C;
+      --terracotta: #E07A5F;
+      --terracotta-hover: #d06d52;
+      --sage-green: #81B29A;
+      --soft-mauve: #D5A6BD;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Quicksand', 'Nunito', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-banner {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .badge-hackathon {
+      background-color: var(--terracotta);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 6px;
+    }
+
+    .container {
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .title-group h1 {
+      font-size: 26px;
+      font-weight: 700;
+    }
+    .title-group h1 span { color: var(--terracotta); }
+    .title-group p { font-size: 13px; color: var(--text-muted); margin-top: 4px; max-width: 800px; }
+
+    .grid-panels {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 992px) {
+      .grid-panels {
+        grid-template-columns: 310px 1.5fr 360px;
+      }
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 3px 12px rgba(74, 66, 56, 0.05);
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(74, 66, 56, 0.09);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .chart-container {
+      position: relative;
+      height: 250px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px;
+      margin: 10px 0;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 10px 0;
+    }
+    @media (min-width: 600px) {
+      .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .metric-box {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .metric-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+    .metric-val { font-size: 16px; font-weight: 700; margin-top: 2px; }
+
+    .btn {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-primary { background-color: var(--terracotta); color: white; }
+    .btn-primary:hover { background-color: var(--terracotta-hover); }
+    .btn-outline { background: white; color: var(--text-main); border: 1px solid var(--card-border); }
+    .btn-outline:hover { background-color: var(--card-subtle); }
+
+    .pulse-ring {
+      animation: pulse-c3 1.8s infinite ease-out;
+      transform-origin: center;
+    }
+    @keyframes pulse-c3 {
+      0% { r: 10px; opacity: 0.9; }
+      50% { r: 24px; opacity: 0.35; stroke-width: 2px; }
+      100% { r: 34px; opacity: 0; stroke-width: 1px; }
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 16px 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Banner Superior -->
+  <header class="top-banner">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="badge-hackathon">Prototipo Educativo</span>
+      <span style="font-size:13px; font-weight:600; color:var(--text-muted)">
+        Hacktoberfest Hack Day La Paz 2026 • Simulador de Persona Virtual
+      </span>
+    </div>
+    <div style="font-size:12px; color:var(--terracotta); font-weight:700;">
+      DATOS EEG SINTÉTICOS — SIMULACIÓN (250 Hz)
+    </div>
+  </header>
+
+  <!-- 2. Contenedor Principal -->
+  <main class="container">
+    
+    <div class="header-section">
+      <div class="title-group">
+        <h1>Neuro-Access BCI: <span>Simulador de Persona Virtual</span></h1>
+        <p>
+          Generador continuo de EEG sintético para canales <strong>C3, Cz y C4</strong> a 250 Hz.
+          Modela: <em>EEG(t) = ritmo cerebral + variación aleatoria + ruido + efecto estado + deriva lenta</em>.
+          <strong style="color:var(--text-main);">No representa datos médicos reales ni diagnostica ELA.</strong>
+        </p>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="generarNuevaPersona()">
+          + Nueva persona
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. Layout de 3 Paneles -->
+    <div class="grid-panels">
+
+      <!-- PANEL IZQUIERDO: Mapa Topográfico -->
+      <section class="card">
+        <div>
+          <div class="card-header">
+            <h2 class="card-title">Topografía Sensoriomotora</h2>
+            <p class="card-desc" id="profile-label">Persona virtual #001 (Mu: 10.2 Hz)</p>
+          </div>
+
+          <div style="position:relative; width:100%; max-width:250px; margin:10px auto;">
+            <svg viewBox="0 0 200 200" width="100%" height="100%">
+              <path d="M 17,90 C 10,95 10,110 17,115" fill="none" stroke="#CDB4A3" stroke-width="3" stroke-linecap="round"/>
+              <path d="M 183,90 C 190,95 190,110 183,115" fill="none" stroke="#CDB4A3" stroke-width="3" stroke-linecap="round"/>
+              <path d="M 94,15 L 100,5 L 106,15" fill="none" stroke="#CDB4A3" stroke-width="3" stroke-linejoin="round"/>
+              <circle cx="100" cy="102" r="82" fill="#F5EBE0" stroke="#CDB4A3" stroke-width="2.5"/>
+              <line x1="100" y1="20" x2="100" y2="184" stroke="#E3D5CA" stroke-dasharray="3,3"/>
+              <path d="M 28,102 Q 100,88 172,102" fill="none" stroke="rgba(224, 122, 95, 0.25)" stroke-width="14" stroke-linecap="round"/>
+
+              <!-- Pulso C3 -->
+              <circle id="c3-pulse" cx="52" cy="100" r="12" fill="none" stroke="var(--terracotta)" stroke-width="2" class="pulse-ring" style="display:none;"/>
+              <!-- Pulso C4 -->
+              <circle id="c4-pulse" cx="148" cy="100" r="12" fill="none" stroke="var(--soft-mauve)" stroke-width="2" class="pulse-ring" style="display:none;"/>
+              <!-- Pulso Cz -->
+              <circle id="cz-pulse" cx="100" cy="100" r="12" fill="none" stroke="var(--sage-green)" stroke-width="2" class="pulse-ring" style="display:none;"/>
+
+              <!-- Electrodos -->
+              <circle cx="52" cy="100" r="11" fill="white" stroke="var(--terracotta)" stroke-width="2.5"/>
+              <text x="52" y="103" font-size="8" font-weight="700" text-anchor="middle" fill="var(--terracotta)">C3</text>
+
+              <circle cx="100" cy="100" r="9" fill="white" stroke="var(--sage-green)" stroke-width="2"/>
+              <text x="100" y="103" font-size="7" font-weight="700" text-anchor="middle" fill="#2D5A46">Cz</text>
+
+              <circle cx="148" cy="100" r="11" fill="white" stroke="var(--soft-mauve)" stroke-width="2.5"/>
+              <text x="148" y="103" font-size="8" font-weight="700" text-anchor="middle" fill="#6B4A5C">C4</text>
+            </svg>
+          </div>
+        </div>
+
+        <div style="background:white; border-radius:10px; padding:10px; border:1px solid var(--card-border); font-size:11px;">
+          <div><strong>C3:</strong> Mano derecha contralateral</div>
+          <div><strong>Cz:</strong> Vertex medial / somatosensorial</div>
+          <div><strong>C4:</strong> Mano izquierda contralateral</div>
+        </div>
+      </section>
+
+      <!-- PANEL CENTRAL: Osciloscopio C3, Cz, C4 -->
+      <section class="card">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2 class="card-title">Osciloscopio Multicanal C3, Cz, C4</h2>
+              <p class="card-desc">250 Hz en tiempo real • Filtro Pasa-banda 0.5 - 35 Hz</p>
+            </div>
+            <span id="state-badge" style="font-size:11px; font-weight:700; background:var(--card-border); padding:4px 8px; border-radius:12px;">
+              REPOSO (Mu ~10 Hz)
+            </span>
+          </div>
+
+          <div class="chart-container">
+            <canvas id="eeg-oscilloscope"></canvas>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-label">Potencia Mu Basal</div>
+              <div class="metric-val" id="metric-base">1850 <span style="font-size:11px; color:var(--text-muted)">µV²</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Potencia C3</div>
+              <div class="metric-val" id="metric-c3">1820 <span style="font-size:11px; color:var(--text-muted)">µV²</span></div>
+              <div id="c3-erd-txt" style="font-size:10px; color:var(--terracotta); font-weight:700;">ERD: 0.0%</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Potencia C4</div>
+              <div class="metric-val" id="metric-c4">1840 <span style="font-size:11px; color:var(--text-muted)">µV²</span></div>
+              <div id="c4-erd-txt" style="font-size:10px; color:var(--soft-mauve); font-weight:700;">ERD: 0.0%</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Potencia Cz / SNR</div>
+              <div class="metric-val" id="metric-cz">1850 <span style="font-size:11px; color:var(--text-muted)">µV²</span></div>
+              <div style="font-size:10px; color:var(--sage-green); font-weight:700;">SNR: 18.2 dB</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; border-top:1px solid var(--card-border); padding-top:12px;">
+          <button id="btn-experiment" class="btn btn-primary" onclick="iniciarExperimento()">
+            INICIAR EXPERIMENTO (5 Etapas)
+          </button>
+          <button class="btn btn-outline" onclick="forzarEstado('REST')">
+            Reposo
+          </button>
+          <button class="btn btn-outline" onclick="forzarEstado('MOTOR_IMAGERY_RIGHT')">
+            Mano Der
+          </button>
+          <button class="btn btn-outline" onclick="forzarEstado('MOTOR_IMAGERY_LEFT')">
+            Mano Izq
+          </button>
+        </div>
+      </section>
+
+      <!-- PANEL DERECHO: Características EEG extraídas -->
+      <section class="card">
+        <div>
+          <div class="card-header">
+            <h2 class="card-title">Características EEG extraídas</h2>
+            <p class="card-desc">Cuantificación espectral y estabilidad entre ensayos</p>
+          </div>
+
+          <div style="background:white; border-radius:12px; padding:12px; border:1px solid var(--card-border); font-size:12px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span>Ensayos registrados:</span>
+              <strong id="trials-count">0</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span>Promedio ERD C3:</span>
+              <strong id="trials-c3-mean" style="color:var(--terracotta);">0.0%</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span>Coeficiente de Variación (CV):</span>
+              <strong id="trials-cv">--</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span>Estabilidad:</span>
+              <strong id="trials-stability" style="color:var(--sage-green);">En calibración</strong>
+            </div>
+          </div>
+
+          <div style="background:var(--card-subtle); border-radius:10px; padding:10px; border:1px solid var(--card-border); font-size:11px; color:var(--text-muted); line-height:1.4;">
+            <strong style="color:var(--text-main);">Aviso Científico:</strong> El prototipo NO diagnostica ELA. Su objetivo actual es simular, detectar y cuantificar cambios en actividad EEG sensoriomotora durante diferentes tareas controladas.
+          </div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <button class="btn btn-outline" style="width:100%;" onclick="descargarReporte()">
+            Descargar Reporte de la Sesión (.txt)
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- 4. Footer -->
+  <footer>
+    <div>© 2026 Neuro-Access BCI • Hacktoberfest Hack Day La Paz</div>
+    <div>Arquitectura desacoplada: IEEGDataSource (SimuladorEEG -> DispositivoEEGReal)</div>
+  </footer>
+
+  <script>
+    /**
+     * ARQUITECTURA DESACOPLADA:
+     * Fuente EEG -> SimuladorEEG | DispositivoEEGReal -> Procesamiento -> Extracción -> UI
+     */
+    let subjectNumber = 1;
+    let profile = {
+      id: "Persona virtual #001",
+      dominantMu: 10.2,
+      dominantBeta: 20.5,
+      baselineMu: 1850,
+      baselineBeta: 150,
+      noise: 3.2,
+      motorErd: -68.0,
+      latencyMs: 310
+    };
+
+    let currentState = 'REST';
+    let timeSec = 0;
+    let c3Trans = 0, c4Trans = 0, sensoryTrans = 0;
+    const samplingRate = 250;
+    let completedTrials = [];
+
+    // Chart.js Multicanal con ventana clínica de 2.0s y sin saltos
+    const ctx = document.getElementById('eeg-oscilloscope').getContext('2d');
+    const bufferSize = 160;
+    const labels = new Array(bufferSize).fill('');
+    const c3Buf = new Array(bufferSize).fill(30);
+    const czBuf = new Array(bufferSize).fill(0);
+    const c4Buf = new Array(bufferSize).fill(-30);
+
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'C3 (Mano Der) ↑', data: c3Buf, borderColor: '#E07A5F', borderWidth: 2.2, fill: false, tension: 0.35, pointRadius: 0 },
+          { label: 'Cz (Vertex) •', data: czBuf, borderColor: '#81B29A', borderWidth: 1.8, fill: false, tension: 0.35, pointRadius: 0 },
+          { label: 'C4 (Mano Izq) ↓', data: c4Buf, borderColor: '#D5A6BD', borderWidth: 1.8, fill: false, tension: 0.35, pointRadius: 0 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false, // CRÍTICO: Desactivar animación de Chart.js para evitar temblores o saltos
+        scales: {
+          x: { display: false },
+          y: { min: -75, max: 75, grid: { color: 'rgba(227, 213, 202, 0.45)' } }
+        },
+        plugins: {
+          legend: { display: true, position: 'top', align: 'end' }
+        }
+      }
+    });
+
+    let prevC3 = 0, prevCz = 0, prevC4 = 0;
+
+    // Generador sintético de muestras continuas (250 Hz) con suavizado analógico
+    function stepSample() {
+      const dt = 1 / samplingRate;
+      timeSec += dt;
+      const t = timeSec;
+
+      const targetC3 = currentState === 'MOTOR_IMAGERY_RIGHT' ? 1 : 0;
+      const targetC4 = currentState === 'MOTOR_IMAGERY_LEFT' ? 1 : 0;
+      const targetSensory = currentState === 'SENSORY_STIMULUS' ? 1 : 0;
+
+      c3Trans += (targetC3 - c3Trans) * 0.05;
+      c4Trans += (targetC4 - c4Trans) * 0.05;
+      sensoryTrans += (targetSensory - sensoryTrans) * 0.05;
+
+      const muFreq = profile.dominantMu;
+      const betaFreq = profile.dominantBeta;
+
+      const baseMuAmp = Math.sqrt(profile.baselineMu) * 1.1;
+      const baseBetaAmp = Math.sqrt(profile.baselineBeta) * 0.8;
+
+      const c3Amp = baseMuAmp * Math.max(0.2, 1 - (Math.abs(profile.motorErd)/100) * c3Trans);
+      const c4Amp = baseMuAmp * Math.max(0.2, 1 - (Math.abs(profile.motorErd)/100) * c4Trans);
+      const czAmp = baseMuAmp;
+
+      const drift = 4.0 * Math.sin(2 * Math.PI * 0.15 * t);
+      const noise = (Math.random() - 0.5) * profile.noise * 2;
+
+      const c3Val = c3Amp * Math.sin(2 * Math.PI * muFreq * t) + (baseBetaAmp + 15 * c3Trans) * Math.sin(2 * Math.PI * betaFreq * t) + noise + drift;
+      const czVal = czAmp * Math.sin(2 * Math.PI * muFreq * t + 0.4) + sensoryTrans * Math.sin(2 * Math.PI * 7.5 * t) * 18 + noise + drift * 0.9;
+      const c4Val = c4Amp * Math.sin(2 * Math.PI * muFreq * t + 0.8) + (baseBetaAmp + 15 * c4Trans) * Math.sin(2 * Math.PI * betaFreq * t) + noise + drift * 1.05;
+
+      // Suavizado biológico pasa-bajas
+      prevC3 = 0.8 * prevC3 + 0.2 * c3Val;
+      prevCz = 0.8 * prevCz + 0.2 * czVal;
+      prevC4 = 0.8 * prevC4 + 0.2 * c4Val;
+
+      return { c3: prevC3, cz: prevCz, c4: prevC4 };
+    }
+
+    // Bucle de streaming a 30 FPS con montaje clínico separado
+    setInterval(() => {
+      const s = stepSample();
+      const gain = 0.7;
+      // Montaje clínico separado: C3 (+30), Cz (0), C4 (-30)
+      c3Buf.push(Number((s.c3 * gain + 30).toFixed(2))); c3Buf.shift();
+      czBuf.push(Number((s.cz * gain).toFixed(2))); czBuf.shift();
+      c4Buf.push(Number((s.c4 * gain - 30).toFixed(2))); c4Buf.shift();
+
+      chart.update('none');
+
+      // Actualizar métricas visuales
+      const isC3Motor = c3Trans > 0.6;
+      const isC4Motor = c4Trans > 0.6;
+      const currentC3 = Math.round(isC3Motor ? profile.baselineMu * 0.3 : profile.baselineMu * 0.98);
+      const currentC4 = Math.round(isC4Motor ? profile.baselineMu * 0.3 : profile.baselineMu * 0.98);
+      const erdC3 = (((currentC3 - profile.baselineMu) / profile.baselineMu) * 100).toFixed(1);
+      const erdC4 = (((currentC4 - profile.baselineMu) / profile.baselineMu) * 100).toFixed(1);
+
+      document.getElementById('metric-c3').innerHTML = currentC3 + ' <span style="font-size:11px; color:var(--text-muted)">µV²</span>';
+      document.getElementById('metric-c4').innerHTML = currentC4 + ' <span style="font-size:11px; color:var(--text-muted)">µV²</span>';
+      document.getElementById('c3-erd-txt').innerText = 'ERD: ' + erdC3 + '%';
+      document.getElementById('c4-erd-txt').innerText = 'ERD: ' + erdC4 + '%';
+    }, 33);
+
+    function forzarEstado(estado) {
+      currentState = estado;
+      document.getElementById('c3-pulse').style.display = estado === 'MOTOR_IMAGERY_RIGHT' ? 'block' : 'none';
+      document.getElementById('c4-pulse').style.display = estado === 'MOTOR_IMAGERY_LEFT' ? 'block' : 'none';
+      document.getElementById('cz-pulse').style.display = estado === 'SENSORY_STIMULUS' ? 'block' : 'none';
+      document.getElementById('state-badge').innerText = estado;
+    }
+
+    // Protocolo automatizado: 5 etapas de 5 segundos
+    async function iniciarExperimento() {
+      const btn = document.getElementById('btn-experiment');
+      btn.disabled = true;
+
+      const etapas = [
+        { nombre: 'REPOSO (Línea base)', estado: 'REST' },
+        { nombre: 'IMAGINA MOVER MANO DERECHA', estado: 'MOTOR_IMAGERY_RIGHT' },
+        { nombre: 'REPOSO (Recuperación)', estado: 'REST' },
+        { nombre: 'IMAGINA MOVER MANO IZQUIERDA', estado: 'MOTOR_IMAGERY_LEFT' },
+        { nombre: 'ESTÍMULO SENSORIAL', estado: 'SENSORY_STIMULUS' }
+      ];
+
+      for (let i = 0; i < etapas.length; i++) {
+        forzarEstado(etapas[i].estado);
+        for (let sec = 5; sec > 0; sec--) {
+          btn.innerText = `[${i+1}/5] ${etapas[i].nombre} (${sec}s)...`;
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      forzarEstado('REST');
+      btn.disabled = false;
+      btn.innerText = 'INICIAR EXPERIMENTO (5 Etapas)';
+
+      // Guardar ensayo
+      const erdRegistrado = profile.motorErd + (Math.random() * 4 - 2);
+      completedTrials.push({ trial: completedTrials.length + 1, erd: Number(erdRegistrado.toFixed(1)) });
+      actualizarRepetibilidad();
+    }
+
+    function actualizarRepetibilidad() {
+      document.getElementById('trials-count').innerText = completedTrials.length;
+      if (completedTrials.length === 0) return;
+      const sum = completedTrials.reduce((a, b) => a + b.erd, 0);
+      const mean = (sum / completedTrials.length).toFixed(1);
+      document.getElementById('trials-c3-mean').innerText = mean + '%';
+
+      if (completedTrials.length > 1) {
+        const variance = completedTrials.reduce((s, t) => s + Math.pow(t.erd - mean, 2), 0) / completedTrials.length;
+        const sd = Math.sqrt(variance);
+        const cv = ((sd / Math.abs(mean)) * 100).toFixed(1);
+        document.getElementById('trials-cv').innerText = cv + '% (SD: ±' + sd.toFixed(1) + '%)';
+        document.getElementById('trials-stability').innerText = cv < 15 ? 'Excelente' : 'Alta';
+      }
+    }
+
+    function generarNuevaPersona() {
+      subjectNumber++;
+      const pad = String(subjectNumber).padStart(3, '0');
+      profile = {
+        id: `Persona virtual #${pad}`,
+        dominantMu: Number((9.2 + Math.random() * 2.2).toFixed(1)),
+        dominantBeta: Number((18.0 + Math.random() * 4.0).toFixed(1)),
+        baselineMu: Math.round(1400 + Math.random() * 950),
+        baselineBeta: Math.round(120 + Math.random() * 120),
+        noise: Number((2.4 + Math.random() * 2.0).toFixed(1)),
+        motorErd: Number((-55 - Math.random() * 22).toFixed(1)),
+        latencyMs: Math.round(270 + Math.random() * 110)
+      };
+
+      document.getElementById('profile-label').innerText = `${profile.id} (Mu: ${profile.dominantMu} Hz)`;
+      document.getElementById('metric-base').innerHTML = profile.baselineMu + ' <span style="font-size:11px; color:var(--text-muted)">µV²</span>';
+      completedTrials = [];
+      actualizarRepetibilidad();
+      forzarEstado('REST');
+    }
+
+    function descargarReporte() {
+      const fecha = new Date().toLocaleString();
+      const txt = `========================================================================================
+           NEURO-ACCESS BCI: REPORTE DE SIMULACIÓN Y EXTRACCIÓN
+           Hacktoberfest Hack Day La Paz 2026 - Prototipo Educativo
+========================================================================================
+AVISO: Datos 100% simulados y sintéticos a 250 Hz. NO diagnósticos.
+Sujeto: ${profile.id}
+Frecuencia Mu Dominante: ${profile.dominantMu} Hz
+Potencia Mu Basal: ${profile.baselineMu} uV²
+Ensayos Realizados: ${completedTrials.length}
+========================================================================================`;
+      const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Reporte_${profile.id}_${Date.now()}.txt`;
+      a.click();
+    }
+  </script>
+</body>
+</html>

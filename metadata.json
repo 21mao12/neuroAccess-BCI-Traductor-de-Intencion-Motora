@@ -1,0 +1,6 @@
+{
+  "name": "Neuro-Access BCI: Traductor de Intención Motora",
+  "description": "Prototipo de Interfaz Cerebro-Computador (BCI) para traducir ritmos sensoriomotores EEG (Mu/Beta) y eventos ERD en autonomía para personas con movilidad reducida con Gemma AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
